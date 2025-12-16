@@ -4,12 +4,20 @@
 
 #include "arraylist.h"
 
-static unsigned _choco_arraylist_get_required_space(unsigned size, unsigned alloc)
+typedef _choco_arraylist_header _header;
+typedef _choco_arraylist_allocator _allocator;
+
+static size_t _choco_arraylist_physical_size(size_t size, size_t alloc)
 {
-    return sizeof(_choco_arraylist_header) + size * alloc;
+    return sizeof(_header) + size * alloc;
 }
 
-static void* _choco_arraylist_heap_alloc(void* self, unsigned size)
+static int _choco_arraylist_is_allocator_valid(_allocator allocator)
+{
+    return allocator.allocate != NULL && allocator.deallocate != NULL;
+}
+
+static void* _choco_arraylist_heap_alloc(void* self, size_t size)
 {
     return malloc(size);
 }
@@ -19,118 +27,135 @@ static void _choco_arraylist_heap_dealloc(void* self, void* ptr)
     free(ptr);
 }
 
-_choco_arraylist_allocator _choco_arraylist_heap_allocator(void)
+_allocator _choco_arraylist_heap_allocator(void)
 {
-    _choco_arraylist_allocator allocator = {
+    _allocator allocator = {
         .allocate = _choco_arraylist_heap_alloc,
-        .dealloate = _choco_arraylist_heap_dealloc
+        .deallocate = _choco_arraylist_heap_dealloc
     };
     return allocator;
 }
 
-_choco_arraylist _choco_arraylist_create_x(_choco_arraylist_allocator allocator, unsigned size, unsigned allocated)
+_choco_arraylist _choco_arraylist_create(_allocator allocator, size_t size, size_t allocated)
 {
-    _choco_arraylist_header header = {
+    if (allocator.allocate == NULL || allocator.deallocate == NULL) {
+        return NULL;
+    }
+
+    size_t required_space = _choco_arraylist_physical_size(size, allocated);
+    _header* header = allocator.allocate(&allocator, required_space);
+    if(header == NULL) {
+        return NULL;
+    }
+
+    *header = (_header) {
         .allocated = allocated,
         .allocator = allocator,
-        .data = NULL,
+        .data = header + 1,
         .size = size,
         .used = 0
     };
-    unsigned required_space = _choco_arraylist_get_required_space(size, allocated);
-    int is_allocator_valid = (allocator.allocate != NULL && allocator.dealloate != NULL);
-    void* memory = (is_allocator_valid) ? allocator.allocate(&allocator, required_space) : NULL;
-    int is_memory_valid = (memory != NULL);
-    header.data = memory + sizeof(header);
-    memcpy(memory, &header, sizeof(header) * is_memory_valid);
-    memset(header.data, 0, size * allocated * is_memory_valid);
-    return (is_memory_valid) ? header.data : NULL;
+
+    return header->data;
 }
 
-_choco_arraylist_header* _choco_arraylist_get_header(_choco_arraylist arrlist)
+_header* _choco_arraylist_get_header(_choco_arraylist arrlist)
 {
-    return ((_choco_arraylist_header*)arrlist) - 1;
+    return ((_header*)arrlist) - 1;
 }
 
-unsigned _choco_arraylist_sizeof(_choco_arraylist arrlist)
+size_t _choco_arraylist_sizeof(_choco_arraylist arrlist)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
-    return sizeof(*header) + header->size * header->allocated;
+    _header* header = _choco_arraylist_get_header(arrlist);
+    return _choco_arraylist_physical_size(header->size, header->allocated);
 }
 
-unsigned _choco_arraylist_length(_choco_arraylist arrlist)
+size_t _choco_arraylist_length(_choco_arraylist arrlist)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
+    _header* header = _choco_arraylist_get_header(arrlist);
     return header->used;
 }
 
-unsigned _choco_arraylist_element_size(_choco_arraylist arrlist)
+size_t _choco_arraylist_element_size(_choco_arraylist arrlist)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
+    _header* header = _choco_arraylist_get_header(arrlist);
     return header->size;
 }
 
 void _choco_arraylist_destroy(_choco_arraylist arrlist)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
-    unsigned size = _choco_arraylist_sizeof(arrlist);
+    _header* header = _choco_arraylist_get_header(arrlist);
+    size_t size = _choco_arraylist_sizeof(arrlist);
     memset(header, 0, size);
     free(header);
 }
 
-void* _choco_arraylist_at(_choco_arraylist arrlist, unsigned index)
+void* _choco_arraylist_at(_choco_arraylist arrlist, size_t index)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
-    void* element = arrlist + header->size * index;
-    return (index >= header->used) ? NULL : element;
+    _header* header = _choco_arraylist_get_header(arrlist);
+    return (index < header->used) ? arrlist + header->size * index : NULL;
 }
 
-_choco_arraylist _choco_arraylist_resize(_choco_arraylist arrlist, unsigned desired_alloc)
+_choco_arraylist _choco_arraylist_resize(_choco_arraylist arrlist, size_t desired)
 {
-    _choco_arraylist_header header = *_choco_arraylist_get_header(arrlist);
-    _choco_arraylist_allocator allocator = header.allocator;
-    int is_allocator_valid = (allocator.allocate != NULL && allocator.dealloate != NULL);
-    unsigned required_space = _choco_arraylist_get_required_space(header.size, desired_alloc);
-    unsigned used_space = _choco_arraylist_sizeof(arrlist);
-    void* new_header = (is_allocator_valid) ? allocator.allocate(&allocator, required_space) : NULL;
-    int is_memory_valid = (new_header != NULL);
-    void* new_arrlist = new_header + sizeof(header);
-    memcpy(new_arrlist, arrlist, header.size * desired_alloc * is_memory_valid);
-    header.data = new_arrlist;
-    header.allocated = desired_alloc;
-    memcpy(new_header, &header, sizeof(header) * is_memory_valid);
-    void* old_memory = _choco_arraylist_get_header(arrlist);
-    if (is_allocator_valid) {
-        allocator.dealloate(&allocator, old_memory);
+    if (arrlist == NULL) {
+        return arrlist;
     }
-    return (is_memory_valid) ? new_arrlist : NULL;
+
+    _header* header = _choco_arraylist_get_header(arrlist);
+    _allocator allocator = header->allocator;
+    int is_allocator_valid = _choco_arraylist_is_allocator_valid(allocator);
+    if (!is_allocator_valid) {
+        return arrlist;
+    }
+
+    size_t desired_size = _choco_arraylist_physical_size(header->size, header->allocated);
+    _header* new_header = allocator.allocate(&allocator, desired_size);
+    if (new_header == NULL) {
+        return arrlist;
+    }
+
+    new_header->allocated = desired;
+    new_header->data = new_header + 1;
+    new_header->allocator = allocator;
+    new_header->size = header->size;
+    new_header->used = header->used;
+
+    size_t smallest = (desired > header->allocated) ? header->allocated : desired;
+    memcpy(new_header->data, header->data, smallest * header->size);
+    allocator.deallocate(&allocator, header);
+    return new_header->data;
 }
 
 _choco_arraylist _choco_arraylist_add(_choco_arraylist arrlist)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
-    _choco_arraylist_header new_header = *header;
-    unsigned desired_alloc = (header->allocated + 1) * 2;
+    if (arrlist == NULL) {
+        return arrlist;
+    }
+
+    _header* header = _choco_arraylist_get_header(arrlist);
     int is_full = _choco_arraylist_is_full(arrlist);
-    arrlist = (is_full) ? _choco_arraylist_resize(arrlist, desired_alloc) : arrlist;
-    int is_arrlist_valid = (arrlist != NULL);
-    new_header.data = arrlist;
-    new_header.allocated = (is_full) ? desired_alloc : new_header.allocated;
-    new_header.used++;
-    header = (is_arrlist_valid) ? _choco_arraylist_get_header(arrlist) : NULL;
-    memcpy(header, &new_header, sizeof(*header) * is_arrlist_valid);
+    if (is_full) {
+        arrlist = _choco_arraylist_resize(arrlist, (header->allocated + 1) * 2);
+        header = _choco_arraylist_get_header(arrlist);
+    }
+
+    header->used++;
+    void* element = _choco_arraylist_at(arrlist, header->used - 1);
+    memset(element, 0, header->size);
     return arrlist;
 }
 
 void _choco_arraylist_remove(_choco_arraylist arrlist)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
+    _header* header = _choco_arraylist_get_header(arrlist);
     header->used -= (header->used > 0);
 }
 
-void _choco_arraylist_swap(_choco_arraylist arrlist, unsigned a, unsigned b)
+void _choco_arraylist_swap(_choco_arraylist arrlist, size_t a, size_t b)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
+    _header* header = _choco_arraylist_get_header(arrlist);
+
     if (a >= header->used || b >= header->used) {
         return;
     }
@@ -138,7 +163,6 @@ void _choco_arraylist_swap(_choco_arraylist arrlist, unsigned a, unsigned b)
     char temp[header->size];
     void* element_a = _choco_arraylist_at(arrlist, a);
     void* element_b = _choco_arraylist_at(arrlist, b);
-
     memcpy(temp, element_a, header->size);
     memcpy(element_a, element_b, header->size);
     memcpy(element_b, temp, header->size);
@@ -146,7 +170,7 @@ void _choco_arraylist_swap(_choco_arraylist arrlist, unsigned a, unsigned b)
 
 int _choco_arraylist_is_full(_choco_arraylist arrlist)
 {
-    _choco_arraylist_header* header = _choco_arraylist_get_header(arrlist);
+    _header* header = _choco_arraylist_get_header(arrlist);
     int is_full = header->used >= header->allocated;
     return is_full;
 }

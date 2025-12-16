@@ -26,7 +26,7 @@ static void init_test_struct(void)
 {
     mock_arrlist = (_choco_arraylist_test_struct) {
         .header = {
-            .allocator = { .allocate = NULL, .dealloate = NULL },
+            .allocator = { .allocate = NULL, .deallocate = NULL },
             .allocated = sizeof(mock_arrlist.data) / sizeof(mock_arrlist.data[0]),
             .used = 0,
             .size = sizeof(int),
@@ -35,14 +35,14 @@ static void init_test_struct(void)
     };
 }
 
-static unsigned mock_alloc_last_req_sz = 0;
+static size_t mock_alloc_last_req_sz = 0;
 static int mock_alloc_last_req_res = 0;
-static void* mock_alloc(void* self, unsigned size)
+static void* mock_alloc(void* self, size_t size)
 {
-    static const unsigned initial_allocated = 2;
-    static const unsigned initial_size = sizeof(mock_arrlist.header) + sizeof(int) * initial_allocated;
-    static const unsigned extended_allocated = 6;
-    static const unsigned extended_size = sizeof(mock_arrlist.header) + sizeof(int) * extended_allocated;
+    static const size_t initial_allocated = 2;
+    static const size_t initial_size = sizeof(mock_arrlist.header) + sizeof(int) * initial_allocated;
+    static const size_t extended_allocated = 6;
+    static const size_t extended_size = sizeof(mock_arrlist.header) + sizeof(int) * extended_allocated;
 
     mock_alloc_last_req_sz = size;
 
@@ -67,11 +67,11 @@ static void mock_dealloc(void* self, void* ptr)
     mock_dealloc_last_ptr = ptr;
 }
 
-static _choco_arraylist_allocator get_test_allocator(void)
+static _choco_arraylist_allocator get_test_choco_arraylist_allocator(void)
 {
     _choco_arraylist_allocator allocator = {
         .allocate = mock_alloc,
-        .dealloate = mock_dealloc
+        .deallocate = mock_dealloc
     };
     return allocator;
 }
@@ -99,7 +99,7 @@ _gt_test(_choco_arraylist_length, )
     mock_arrlist.header.used = 3;
 
     // act
-    unsigned length = _choco_arraylist_length(mock_arrlist.data);
+    size_t length = _choco_arraylist_length(mock_arrlist.data);
 
     // assert
     _gt_test_int_eq(length, 3);
@@ -112,7 +112,7 @@ _gt_test(_choco_arraylist_element_size, )
     init_test_struct();
 
     // act
-    unsigned size = _choco_arraylist_element_size(mock_arrlist.data);
+    size_t size = _choco_arraylist_element_size(mock_arrlist.data);
 
     // assert
     _gt_test_int_eq(size, sizeof(int));
@@ -125,7 +125,7 @@ _gt_test(_choco_arraylist_sizeof, )
     init_test_struct();
 
     // act
-    unsigned physical_size = _choco_arraylist_sizeof(mock_arrlist.data);
+    size_t physical_size = _choco_arraylist_sizeof(mock_arrlist.data);
 
     // assert
     _gt_test_int_eq(physical_size, sizeof(mock_arrlist));
@@ -196,7 +196,7 @@ _gt_test(_choco_arraylist_remove, )
     // arrange
     init_test_struct();
     mock_arrlist.header.used = 4;
-    unsigned old_used = mock_arrlist.header.used;
+    size_t old_used = mock_arrlist.header.used;
 
     // act
     _choco_arraylist_remove(mock_arrlist.data);
@@ -219,15 +219,15 @@ _gt_test(_choco_arraylist_remove, when_empty)
     _gt_passed();
 }
 
-_gt_test(_choco_arraylist_create_x, )
+_gt_test(_choco_arraylist_create, )
 {
     // arrange
-    _choco_arraylist_allocator allocator = get_test_allocator();
-    unsigned size = sizeof(int);
-    unsigned alloc = 1;
+    _choco_arraylist_allocator allocator = get_test_choco_arraylist_allocator();
+    size_t size = sizeof(int);
+    size_t alloc = 1;
 
     // act
-    _choco_arraylist arrlist = _choco_arraylist_create_x(allocator, size, alloc);
+    _choco_arraylist arrlist = _choco_arraylist_create(allocator, size, alloc);
 
     // assert
     _gt_test_ptr_neq(arrlist, NULL);
@@ -237,16 +237,16 @@ _gt_test(_choco_arraylist_create_x, )
     _gt_passed();
 }
 
-_gt_test(_choco_arraylist_create_x, mem_alloc_failed)
+_gt_test(_choco_arraylist_create, mem_alloc_failed)
 {
     // arrange
-    _choco_arraylist_allocator allocator = get_test_allocator();
-    unsigned size = sizeof(int);
-    unsigned alloc = 10;
-    unsigned physical_size = sizeof(_choco_arraylist_header) + sizeof(int) * alloc;
+    _choco_arraylist_allocator allocator = get_test_choco_arraylist_allocator();
+    size_t size = sizeof(int);
+    size_t alloc = 10;
+    size_t physical_size = sizeof(_choco_arraylist_header) + sizeof(int) * alloc;
 
     // act
-    _choco_arraylist arrlist = _choco_arraylist_create_x(allocator, size, alloc);
+    _choco_arraylist arrlist = _choco_arraylist_create(allocator, size, alloc);
 
     // assert
     _gt_test_ptr_eq(arrlist, NULL);
@@ -260,9 +260,9 @@ _gt_test(_choco_arraylist_resize, )
     // arrange
     init_test_struct();
     mock_arrlist.header.allocated = 2;
-    mock_arrlist.header.allocator = get_test_allocator();
-    unsigned to_alloc = 5;
-    unsigned req_size = sizeof(mock_arrlist.header) + sizeof(int) * to_alloc;
+    mock_arrlist.header.allocator = get_test_choco_arraylist_allocator();
+    size_t to_alloc = 5;
+    size_t req_size = sizeof(mock_arrlist.header) + sizeof(int) * to_alloc;
     _choco_arraylist_header* header = &mock_arrlist.header;
     _choco_arraylist arrlist = mock_arrlist.data;
 
@@ -283,8 +283,8 @@ _gt_test(_choco_arraylist_resize, mem_alloc_failed)
     // arrange
     init_test_struct();
     mock_arrlist.header.allocated = 2;
-    mock_arrlist.header.allocator = get_test_allocator();
-    unsigned to_alloc = 10;
+    mock_arrlist.header.allocator = get_test_choco_arraylist_allocator();
+    size_t to_alloc = 10;
     _choco_arraylist_header* header = &mock_arrlist.header;
     _choco_arraylist arrlist = mock_arrlist.data;
 
@@ -306,7 +306,7 @@ _gt_test(_choco_arraylist_resize, alloc_invalid)
     mock_arrlist.header.allocated = 2;
     mock_arrlist.header.allocator = (_choco_arraylist_allocator) { 0 };
     mock_alloc_last_req_sz = 0;
-    unsigned to_alloc = 5;
+    size_t to_alloc = 5;
     _choco_arraylist_header* header = &mock_arrlist.header;
     _choco_arraylist arrlist = mock_arrlist.data;
 
@@ -352,14 +352,14 @@ _gt_test(_choco_arraylist_is_full, yes)
 _gt_test(_choco_arraylist_add, )
 {
     // arrange
-    unsigned alloc = 2;
-    unsigned used = 0;
-    unsigned used_after_add = used + 1;
+    size_t alloc = 2;
+    size_t used = 0;
+    size_t used_after_add = used + 1;
     init_test_struct();
     _choco_arraylist_header* header = &mock_arrlist.header;
     header->allocated = alloc;
     header->used = used;
-    header->allocator = get_test_allocator();
+    header->allocator = get_test_choco_arraylist_allocator();
     mock_alloc_last_req_sz = 0;
     mock_dealloc_last_ptr = NULL;
 
@@ -381,14 +381,14 @@ _gt_test(_choco_arraylist_add, when_full)
     init_test_struct();
     _choco_arraylist_header* header = &mock_arrlist.header;
     _choco_arraylist arrlist = mock_arrlist.data;
-    unsigned alloc = 2;
-    unsigned used = 2;
-    unsigned used_after_add = used + 1;
-    unsigned alloc_after_add = (alloc + 1) * 2;
-    unsigned request_size = sizeof(int) * alloc_after_add + sizeof(*header);
+    size_t alloc = 2;
+    size_t used = 2;
+    size_t used_after_add = used + 1;
+    size_t alloc_after_add = (alloc + 1) * 2;
+    size_t request_size = sizeof(int) * alloc_after_add + sizeof(*header);
     header->allocated = alloc;
     header->used = used;
-    header->allocator = get_test_allocator();
+    header->allocator = get_test_choco_arraylist_allocator();
 
     // act
     _choco_arraylist result = _choco_arraylist_add(mock_arrlist.data);
@@ -408,13 +408,13 @@ _gt_test(_choco_arraylist_add, alloc_fail)
     init_test_struct();
     _choco_arraylist_header* header = &mock_arrlist.header;
     _choco_arraylist arrlist = mock_arrlist.data;
-    unsigned alloc = 6;
-    unsigned used = 6;
-    unsigned alloc_after_add = (alloc + 1) * 2;
-    unsigned request_size = sizeof(int) * alloc_after_add + sizeof(*header);
+    size_t alloc = 6;
+    size_t used = 6;
+    size_t alloc_after_add = (alloc + 1) * 2;
+    size_t request_size = sizeof(int) * alloc_after_add + sizeof(*header);
     header->allocated = alloc;
     header->used = used;
-    header->allocator = get_test_allocator();
+    header->allocator = get_test_choco_arraylist_allocator();
 
     // act
     _choco_arraylist result = _choco_arraylist_add(mock_arrlist.data);
@@ -437,8 +437,8 @@ void _choco_arraylist_test(void)
     _gt_run(_choco_arraylist_swap, invalid_index);
     _gt_run(_choco_arraylist_remove, );
     _gt_run(_choco_arraylist_remove, when_empty);
-    _gt_run(_choco_arraylist_create_x, );
-    _gt_run(_choco_arraylist_create_x, mem_alloc_failed);
+    _gt_run(_choco_arraylist_create, );
+    _gt_run(_choco_arraylist_create, mem_alloc_failed);
     _gt_run(_choco_arraylist_resize, );
     _gt_run(_choco_arraylist_resize, mem_alloc_failed);
     _gt_run(_choco_arraylist_resize, alloc_invalid);
