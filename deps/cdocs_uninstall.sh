@@ -11,8 +11,8 @@ if [ -d "./cdocs" ]; then
 fi
 
 # 2. remove code
-if [ -d "../cdocs" ]; then
-    rm -rf ../cdocs
+if [ -d "../src/cdocs" ]; then
+    rm -rf ../src/cdocs
 fi
 
 # 3. done 

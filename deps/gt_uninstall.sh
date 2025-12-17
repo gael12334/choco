@@ -11,8 +11,8 @@ if [ -d "./gt" ]; then
 fi
 
 # 2. remove code
-if [ -d "../gt" ]; then
-    rm -rf ../gt
+if [ -d "../src/gt" ]; then
+    rm -rf ../src/gt
 fi
 
 # 3. done 
