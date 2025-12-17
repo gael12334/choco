@@ -2,4 +2,4 @@
 # Copyright © 2025 Gaël Fortier <gael.fortier.1@ens.etsmtl.ca>
 #
 
-clang-format -style=Webkit -i $(find . -name '*.c' -print)
+./out/choco_test

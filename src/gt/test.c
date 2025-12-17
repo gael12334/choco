@@ -11,8 +11,7 @@
 
 // - - - - - - - - -
 
-void _gt_bin_op(const char* op, const _gt_str_t param1, const _gt_str_t param2, const _gt_str_t expr1, const _gt_str_t expr2, _gt_info_t info)
-{
+void _gt_bin_op(const char* op, const _gt_str_t param1, const _gt_str_t param2, const _gt_str_t expr1, const _gt_str_t expr2, _gt_info_t info) {
     printf(COLOR_FB(97, 41, "%-50s") "has failed !\n", info.func);
     printf(COLOR_F(91, "Line %u: ") "\n", info.line);
     printf(COLOR_F(91, "%s %s %s") "\n", expr1, op, expr2);
@@ -21,7 +20,6 @@ void _gt_bin_op(const char* op, const _gt_str_t param1, const _gt_str_t param2, 
 
 // - - - - - - - - -
 
-void _gt_success(const char* func)
-{
+void _gt_success(const char* func) {
     printf(COLOR_FB(30, 42, "%-50s") "has passed !\n", func);
 }

@@ -3,6 +3,6 @@
 */
 
 #pragma once
-#include "../../gt/test.h"
+#include "../src/gt/test.h"
 
 void _choco_arraylist_test(void);
