@@ -3,42 +3,76 @@
 */
 
 #pragma once
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stddef.h>
 
-typedef void* _choco_arraylist;
+#define arraylist _choco_arraylist_obj
+#define result _choco_arraylist_result
+#define memmgr _choco_arraylist_memmgr
+#define interface _choco_arraylist
+#define header_size _choco_arraylist_header_size
 
-typedef enum _choco_arraylist_result {
-    _CHOCO_ARRAYLIST_RESULT_OK,
-    _CHOCO_ARRAYLIST_RESULT_ERROR,
-    _CHOCO_ARRAYLIST_RESULT_YES,
-    _CHOCO_ARRAYLIST_RESULT_NO,
-} _choco_arraylist_result;
+enum result {
+    _CHOCO_ARRAYLIST_OK,
+    _CHOCO_ARRAYLIST_INV_MEMMGR,
+    _CHOCO_ARRAYLIST_INV_UNITS,
+    _CHOCO_ARRAYLIST_INV_INDEX,
+    _CHOCO_ARRAYLIST_INV_REF,
+    _CHOCO_ARRAYLIST_INV_SELF,
+    _CHOCO_ARRAYLIST_INV_SIZE,
+    _CHOCO_ARRAYLIST_INV_RANGE,
+    _CHOCO_ARRAYLIST_INV_OTHER,
+    _CHOCO_ARRAYLIST_INV_OFFSET,
+    _CHOCO_ARRAYLIST_ERR_ALLOC,
+    _CHOCO_ARRAYLIST_ERR_DEALLOC,
+    _CHOCO_ARRAYLIST_ERR_EMPTY,
+    _CHOCO_ARRAYLIST_NOT_IMPL,
+};
 
-typedef struct _choco_arraylist_allocator {
-    void*(*allocate)(void* self, size_t size);
-    void(*deallocate)(void* self, void* ptr);
-} _choco_arraylist_allocator;
+struct memmgr {
+    void* obj;
+    void*(*alloc)(void* obj, size_t size, enum result* out);
+    void(*dealloc)(void* obj, void* ptr, enum result* out);
+};
 
-typedef struct _choco_arraylist_header {
-    _choco_arraylist data;
-    _choco_arraylist_allocator allocator;
-    size_t allocated;
-    size_t used;
-    size_t size;
-} _choco_arraylist_header;
+struct arraylist {
+   void* ptr;
+};
 
-_choco_arraylist_allocator _choco_arraylist_heap_allocator(void);
-_choco_arraylist_header* _choco_arraylist_get_header(_choco_arraylist arrlist);
-_choco_arraylist_result _choco_arraylist_destroy(_choco_arraylist arrlist);
-_choco_arraylist_result _choco_arraylist_remove(_choco_arraylist arrlist);
-_choco_arraylist_result _choco_arraylist_swap(_choco_arraylist arrlist, size_t a, size_t b);
-_choco_arraylist_result _choco_arraylist_is_full(_choco_arraylist arrlist);
-_choco_arraylist _choco_arraylist_create(_choco_arraylist_allocator allocator, size_t size, size_t allocated);
-_choco_arraylist _choco_arraylist_resize(_choco_arraylist arrlist, size_t desired);
-_choco_arraylist _choco_arraylist_add(_choco_arraylist arrlist);
-size_t _choco_arraylist_element_size(_choco_arraylist arrlist);
-size_t _choco_arraylist_sizeof(_choco_arraylist arrlist);
-size_t _choco_arraylist_length(_choco_arraylist arrlist);
-void* _choco_arraylist_at(_choco_arraylist arrlist, size_t index);
+typedef struct memmgr memmgr;
+typedef struct arraylist arraylist;
+typedef enum result result;
+
+extern const size_t header_size;
+
+extern struct interface {
+    arraylist(*create)(memmgr memory, size_t units, size_t size, result* out);
+    arraylist(*clone)(memmgr memory, arraylist other, size_t index, size_t size, result* out);
+    arraylist(*push)(arraylist self, void* ref, size_t units, result* out);
+    arraylist(*pull)(arraylist self, arraylist other, size_t index, size_t size, result* out);
+    arraylist(*reduce)(arraylist self, result* out);
+    size_t(*size_of)(arraylist self, result* out);
+    size_t(*length)(arraylist self, result* out);
+    size_t(*units)(arraylist self, result* out);
+    size_t(*size)(arraylist self, result* out);
+    void*(*remove)(arraylist self, void* ref, size_t units, result* out);
+    void*(*first)(arraylist self, result* out);
+    void*(*last)(arraylist self, result* out);
+    void*(*at)(arraylist self, size_t index, result* out);
+    void(*destroy)(arraylist self, result* out);
+    void(*fill)(arraylist self, void* ref, size_t units, size_t index, size_t size, result* out);
+    void(*copy)(arraylist self, arraylist other, size_t index, size_t size, result* out);
+    void(*clear)(arraylist self, result* out);
+    void(*swap)(arraylist self, size_t index, size_t other, result* out);
+    void(*flip)(arraylist self, result* out);
+    void(*sort)(arraylist self, size_t units, size_t offset, result* out);
+    int(*is_empty)(arraylist self, result* out);
+    int(*equals)(arraylist self, arraylist other, result* out);
+    int(*pop)(arraylist self, size_t size, result* out);
+} interface;
+
+
+#undef arraylist
+#undef result
+#undef memmgr
+#undef interface
+#undef header_size

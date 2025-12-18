@@ -2,7 +2,7 @@
     Copyright © 2025 Gaël Fortier <gael.fortier.1@ens.etsmtl.ca>
 */
 
-#include "arraylist_test.h"
+#include "../tests/arraylist_test.h"
 
 int main(int argc, char** argv)
 {

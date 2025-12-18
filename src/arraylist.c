@@ -3,233 +3,333 @@
 */
 
 #include "arraylist.h"
-#include <asm-generic/errno.h>
+#include <string.h>
 
-typedef _choco_arraylist_header _header;
-typedef _choco_arraylist_result _result;
-typedef _choco_arraylist_allocator _allocator;
+#define arraylist _choco_arraylist_obj
+#define result _choco_arraylist_result
+#define memmgr _choco_arraylist_memmgr
+#define interface _choco_arraylist
+#define header_size _choco_arraylist_header_size
 
-#define _get_element(arrlist, size, index) \
-    (arrlist + (size * index))
+// static arraylist create(memmgr memory, size_t units, size_t size, result* out);
+// static arraylist clone(memmgr memory, arraylist other, size_t index, size_t size, result* out);
+// static arraylist push(arraylist self, void* ref, size_t units, result* out);
+// static arraylist pull(arraylist self, arraylist other, size_t index, size_t size, result* out);
+// static arraylist reduce(arraylist self, result* out);
+// static size_t size_of(arraylist self, result* out);
+// static size_t length(arraylist self, result* out);
+// static size_t units(arraylist self, result* out);
+// static size_t size(arraylist self, result* out);
+// static void* remove(arraylist self, void* ref, size_t units, result* out);
+// static void* first(arraylist self, result* out);
+// static void* last(arraylist self, result* out);
+// static void* at(arraylist self, size_t index, result* out);
+// static void destroy(arraylist self, result* out);
+// static void fill(arraylist self, void* ref, size_t units, size_t index, size_t size, result* out);
+// static void copy(arraylist self, arraylist other, size_t index, size_t size, result* out);
+// static void clear(arraylist self, result* out);
+// static void swap(arraylist self, size_t index, size_t other, result* out);
+// static void flip(arraylist self, result* out);
+// static void sort(arraylist self, size_t units, size_t offset, result* out);
+// static int is_empty(arraylist self, result* out);
+// static int equals(arraylist self, arraylist other, result* out);
+// static int pop(arraylist self, size_t size, result* out);
 
-#define _physical_size(size, alloc) \
-    (sizeof(_header) + size * alloc)
+/*
+ * Internal structs
+ */
 
-#define _is_allocator_valid(allocator) \
-    (allocator.allocate != NULL && allocator.deallocate != NULL)
+typedef struct header {
+    memmgr memory;
+    size_t units;
+    size_t length;
+    size_t size;
+} header;
 
-#define _get_header(arrlist) \
-    (((_header*)arrlist) - 1)
+/*
+ * Private functions
+ */
 
-static void* _heap_alloc(void* self, size_t size)
+static int is_memmgr_valid(memmgr memory)
 {
-    return malloc(size);
+    return memory.alloc != NULL && memory.dealloc != NULL;
 }
 
-static void _heap_dealloc(void* self, void* ptr)
+static int is_arraylist_valid(arraylist obj)
 {
-    free(ptr);
+    return obj.ptr != NULL;
 }
 
-_allocator _choco_arraylist_heap_allocator(void)
+static int is_index_valid(header* h, size_t index)
 {
-    _allocator allocator = {
-        .allocate = _heap_alloc,
-        .deallocate = _heap_dealloc
-    };
-    return allocator;
+    return index < h->length;
 }
 
-_choco_arraylist _choco_arraylist_create(_allocator allocator, size_t size, size_t desired)
+static int is_range_valid(header* h, size_t index, size_t size)
 {
-    if (!_is_allocator_valid(allocator)) {
-        return NULL;
+    return index < h->length && (index + size) <= h->length;
+}
+
+static int is_units_valid(header* h, size_t units)
+{
+    return h->units == units;
+}
+
+static int is_alloc_successful(void* v, result status)
+{
+    return v != NULL && status == _CHOCO_ARRAYLIST_OK;
+}
+
+static header* get_header(arraylist obj)
+{
+    return obj.ptr - sizeof(header);
+}
+
+static void* get_element(arraylist obj, size_t units, size_t index)
+{
+    return obj.ptr + units * index;
+}
+
+static size_t get_data_size(size_t units, size_t size)
+{
+    return size * units;
+}
+
+static size_t get_physical_size(header* h)
+{
+    return sizeof(*h) + get_data_size(h->size, h->units);
+}
+
+static arraylist get_arraylist(header* h)
+{
+    return (arraylist) { .ptr = h + 1 };
+}
+
+static arraylist get_null_arraylist(void)
+{
+    return (arraylist) { .ptr = NULL };
+}
+
+static void set_length(header* h, size_t length)
+{
+    h->length = length;
+}
+
+static void set_result(result* out, result r)
+{
+    if (out != NULL) {
+        *out = r;
+    }
+}
+
+static void set_data_from_arraylist(arraylist self, size_t s_index, arraylist other, size_t o_index, size_t units, size_t size)
+{
+    void* s_element = get_element(self, units, s_index);
+    void* o_element = get_element(other, units, o_index);
+    memcpy(s_element, o_element, get_data_size(units, size));
+}
+
+/*
+ * Public functions
+ */
+
+static arraylist create(memmgr memory, size_t units, size_t size, result* out)
+{
+    if (!is_memmgr_valid(memory)) {
+        set_result(out, _CHOCO_ARRAYLIST_INV_MEMMGR);
+        return get_null_arraylist();
     }
 
-    size_t required_space = _physical_size(size, desired);
-    _header* header = allocator.allocate(&allocator, required_space);
-    if (header == NULL) {
-        return NULL;
-    }
-
-    *header = (_header) {
-        .allocated = desired,
-        .allocator = allocator,
-        .data = header + 1,
+    header h = {
+        .length = 0,
         .size = size,
-        .used = 0
+        .units = units,
+        .memory = memory
     };
 
-    return header->data;
+    result status;
+    size_t needed = get_physical_size(&h);
+    header* ptr = memory.alloc(memory.obj, needed, &status);
+
+    if (!is_alloc_successful(ptr, status)) {
+        set_result(out, _CHOCO_ARRAYLIST_ERR_ALLOC);
+        return get_null_arraylist();
+    }
+
+    *ptr = h;
+    set_result(out, _CHOCO_ARRAYLIST_OK);
+    return get_arraylist(ptr);
 }
 
-_header* _choco_arraylist_get_header(_choco_arraylist arrlist)
+static arraylist clone(memmgr memory, arraylist other, size_t index, size_t size, result* out)
 {
-    if (arrlist == NULL) {
-        return NULL;
+    if (!is_arraylist_valid(other)) {
+        set_result(out, _CHOCO_ARRAYLIST_INV_OTHER);
+        return get_null_arraylist();
     }
 
-    return ((_header*)arrlist) - 1;
+    header* other_header = get_header(other);
+    if (!is_range_valid(other_header, index, size)) {
+        set_result(out, _CHOCO_ARRAYLIST_INV_RANGE);
+        return get_null_arraylist();
+    }
+
+    result status;
+    arraylist self = interface.create(memory, other_header->units, other_header->size, &status);
+    if (!is_alloc_successful(self.ptr, status)) {
+        set_result(out, status);
+        return get_null_arraylist();
+    }
+
+    set_length(get_header(self), size);
+    set_data_from_arraylist(self, 0, other, index, other_header->units, size);
+    set_result(out, _CHOCO_ARRAYLIST_OK);
+    return self;
 }
 
-size_t _choco_arraylist_sizeof(_choco_arraylist arrlist)
+static arraylist push(arraylist self, void* ref, size_t units, result* out)
 {
-    if (arrlist == NULL) {
-        return 0;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-    return _physical_size(header->size, header->allocated);
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return get_null_arraylist();
 }
 
-size_t _choco_arraylist_length(_choco_arraylist arrlist)
+static arraylist pull(arraylist self, arraylist other, size_t index, size_t size, result* out)
 {
-    if (arrlist == NULL) {
-        return 0;
-    }
-
-    _header* header = _get_header(arrlist);
-    return header->used;
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return get_null_arraylist();
 }
 
-size_t _choco_arraylist_element_size(_choco_arraylist arrlist)
+static arraylist reduce(arraylist self, result* out)
 {
-    if (arrlist == NULL) {
-        return 0;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-    return header->size;
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return get_null_arraylist();
 }
 
-_result _choco_arraylist_destroy(_choco_arraylist arrlist)
+static size_t size_of(arraylist self, result* out)
 {
-    if (arrlist == NULL) {
-        return _CHOCO_ARRAYLIST_RESULT_ERROR;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-
-    if (!_is_allocator_valid(header->allocator)) {
-        return _CHOCO_ARRAYLIST_RESULT_ERROR;
-    }
-
-    size_t size = _choco_arraylist_sizeof(arrlist);
-    memset(header, 0, size);
-    header->allocator.deallocate(&header->allocator, header);
-    return _CHOCO_ARRAYLIST_RESULT_OK;
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return 0;
 }
 
-void* _choco_arraylist_at(_choco_arraylist arrlist, size_t index)
+static size_t length(arraylist self, result* out)
 {
-    if (arrlist == NULL) {
-        return NULL;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-
-    if (index >= header->used) {
-        return NULL;
-    }
-
-    return _get_element(arrlist, header->size, index);
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return 0;
 }
 
-_choco_arraylist _choco_arraylist_resize(_choco_arraylist arrlist, size_t desired)
+static size_t units(arraylist self, result* out)
 {
-    if (arrlist == NULL) {
-        return NULL;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-    _allocator allocator = header->allocator;
-    int is_allocator_valid = _is_allocator_valid(allocator);
-    if (!is_allocator_valid) {
-        return arrlist;
-    }
-
-    size_t desired_size = _physical_size(header->size, desired);
-    _header* new_header = allocator.allocate(&allocator, desired_size);
-    if (new_header == NULL) {
-        return arrlist;
-    }
-
-    *new_header = (_header) {
-        .allocated = desired,
-        .allocator = allocator,
-        .size = header->size,
-        .used = header->used,
-        .data = new_header + 1,
-    };
-
-
-
-    allocator.deallocate(&allocator, header);
-    return new_header->data;
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return 0;
 }
 
-_choco_arraylist _choco_arraylist_add(_choco_arraylist arrlist)
+static size_t size(arraylist self, result* out)
 {
-    if (arrlist == NULL) {
-        return NULL;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-    _result is_full = _choco_arraylist_is_full(arrlist);
-
-    if (is_full == _CHOCO_ARRAYLIST_RESULT_YES) {
-        arrlist = _choco_arraylist_resize(arrlist, (header->allocated + 1) * 2);
-        header = _choco_arraylist_get_header(arrlist);
-    }
-
-    void* element = _get_element(arrlist, header->size, header->used++);
-    memset(element, 0, header->size);
-    return arrlist;
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return 0;
 }
 
-_result _choco_arraylist_remove(_choco_arraylist arrlist)
+static void* remove(arraylist self, void* ref, size_t units, result* out)
 {
-    if (arrlist == NULL) {
-        return _CHOCO_ARRAYLIST_RESULT_ERROR;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-
-    if (header->used == 0) {
-        return _CHOCO_ARRAYLIST_RESULT_ERROR;
-    }
-
-    header->used--;
-    return _CHOCO_ARRAYLIST_RESULT_OK;
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return NULL;
 }
 
-_result _choco_arraylist_swap(_choco_arraylist arrlist, size_t a, size_t b)
+static void* first(arraylist self, result* out)
 {
-    if (arrlist == NULL) {
-        return _CHOCO_ARRAYLIST_RESULT_ERROR;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-
-    if (a >= header->used || b >= header->used) {
-        return _CHOCO_ARRAYLIST_RESULT_ERROR;
-    }
-
-    char temp[header->size];
-    void* element_a = _get_element(arrlist, header->size, a);
-    void* element_b = _get_element(arrlist, header->size, b);
-    memcpy(temp, element_a, header->size);
-    memcpy(element_a, element_b, header->size);
-    memcpy(element_b, temp, header->size);
-    return _CHOCO_ARRAYLIST_RESULT_OK;
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return NULL;
 }
 
-_result _choco_arraylist_is_full(_choco_arraylist arrlist)
+static void* last(arraylist self, result* out)
 {
-    if (arrlist == NULL) {
-        return _CHOCO_ARRAYLIST_RESULT_ERROR;
-    }
-
-    _header* header = _choco_arraylist_get_header(arrlist);
-    return (header->used >= header->allocated) ? _CHOCO_ARRAYLIST_RESULT_YES : _CHOCO_ARRAYLIST_RESULT_NO;
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return NULL;
 }
+
+static void* at(arraylist self, size_t index, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return NULL;
+}
+
+static void destroy(arraylist self, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+}
+
+static void fill(arraylist self, void* ref, size_t units, size_t index, size_t size, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+}
+
+static void copy(arraylist self, arraylist other, size_t index, size_t size, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+}
+
+static void clear(arraylist self, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+}
+
+static void swap(arraylist self, size_t index, size_t other, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+}
+
+static void flip(arraylist self, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+}
+
+static void sort(arraylist self, size_t units, size_t offset, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+}
+
+static int is_empty(arraylist self, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return 0;
+}
+
+static int equals(arraylist self, arraylist other, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return 0;
+}
+
+static int pop(arraylist self, size_t size, result* out)
+{
+    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
+    return 0;
+}
+
+const size_t header_size = sizeof(header);
+
+struct interface interface = {
+    .at = at,
+    .clear = clear,
+    .clone = clone,
+    .copy = copy,
+    .create = create,
+    .destroy = destroy,
+    .equals = equals,
+    .fill = fill,
+    .first = first,
+    .flip = flip,
+    .is_empty = is_empty,
+    .last = last,
+    .length = length,
+    .pop = pop,
+    .pull = pull,
+    .push = push,
+    .reduce = reduce,
+    .remove = remove,
+    .size = size,
+    .size_of = size_of,
+    .sort = sort,
+    .swap = swap,
+    .units = units
+};

@@ -21,7 +21,7 @@ void _gt_success(const char *func);
 
 #define _gt_passed() _gt_success(__func__);
 
-#define _gt_test(fn, opt_case) void test_##fn##_##opt_case(void)
+#define _gt_test(fn, opt_case) static void test_##fn##_##opt_case(void)
 
 #define _gt_run(fn, opt_case) test_##fn##_##opt_case()
 

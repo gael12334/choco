@@ -38,5 +38,7 @@ void _cdocs_generate_documentation_x(const char* filename, const char* subject, 
 
 #define _cdocs_fn(f, r, ...) (_cdocs_fn_struct){.function = f, .returns = r, .parameters = {__VA_ARGS__, _cdocs_ending_p}}
 
+#define _cdocs_code(x) "`" #x "`"
+
 #define _cdocs_generate_documentation(subject, functions) \
     _cdocs_generate_documentation_x(__FILE__ ".md", subject, sizeof(functions) / sizeof(functions[0]), functions)
