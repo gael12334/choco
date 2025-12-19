@@ -31,7 +31,7 @@ _gt_test(clone, )
             } }
     };
 
-    _choco_arraylist_memmgr memmgr = {
+    _choco_memmgr_obj memmgr = {
         .obj = &memmgr_mock,
         .alloc = mock_alloc,
         .dealloc = mock_dealloc
@@ -64,7 +64,7 @@ _gt_test(clone, )
 _gt_test(clone, inv_arrlist)
 {
     // arrange
-    _choco_arraylist_memmgr memmgr = { 0 };
+    _choco_memmgr_obj memmgr = { 0 };
     _choco_arraylist_obj other = { .ptr = NULL };
 
     // act
@@ -80,7 +80,7 @@ _gt_test(clone, inv_arrlist)
 _gt_test(clone, inv_range)
 {
     // arrange
-    _choco_arraylist_memmgr memmgr = { 0 };
+    _choco_memmgr_obj memmgr = { 0 };
     _choco_arraylist_obj other = { .ptr = other_mock.list };
 
     // act
@@ -99,7 +99,7 @@ _gt_test(clone, inv_range)
 _gt_test(clone, create_failed)
 {
     // arrange
-    _choco_arraylist_memmgr memmgr = { 0 };
+    _choco_memmgr_obj memmgr = { 0 };
     _choco_arraylist_obj other = { .ptr = other_mock.list };
 
     // act

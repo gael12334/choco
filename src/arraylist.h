@@ -4,45 +4,14 @@
 
 #pragma once
 #include <stddef.h>
+#include "arraylist/defines.h"
+#include "arraylist/result.h"
+#include "arraylist/header.h"
+#include "memmgr.h"
 
-#define arraylist _choco_arraylist_obj
-#define result _choco_arraylist_result
-#define memmgr _choco_arraylist_memmgr
-#define interface _choco_arraylist
-#define header_size _choco_arraylist_header_size
-
-enum result {
-    _CHOCO_ARRAYLIST_OK,
-    _CHOCO_ARRAYLIST_INV_MEMMGR,
-    _CHOCO_ARRAYLIST_INV_UNITS,
-    _CHOCO_ARRAYLIST_INV_INDEX,
-    _CHOCO_ARRAYLIST_INV_REF,
-    _CHOCO_ARRAYLIST_INV_SELF,
-    _CHOCO_ARRAYLIST_INV_SIZE,
-    _CHOCO_ARRAYLIST_INV_RANGE,
-    _CHOCO_ARRAYLIST_INV_OTHER,
-    _CHOCO_ARRAYLIST_INV_OFFSET,
-    _CHOCO_ARRAYLIST_ERR_ALLOC,
-    _CHOCO_ARRAYLIST_ERR_DEALLOC,
-    _CHOCO_ARRAYLIST_ERR_EMPTY,
-    _CHOCO_ARRAYLIST_NOT_IMPL,
-};
-
-struct memmgr {
-    void* obj;
-    void*(*alloc)(void* obj, size_t size, enum result* out);
-    void(*dealloc)(void* obj, void* ptr, enum result* out);
-};
-
-struct arraylist {
+typedef struct arraylist {
    void* ptr;
-};
-
-typedef struct memmgr memmgr;
-typedef struct arraylist arraylist;
-typedef enum result result;
-
-extern const size_t header_size;
+} arraylist;
 
 extern struct interface {
     arraylist(*create)(memmgr memory, size_t units, size_t size, result* out);
@@ -71,9 +40,4 @@ extern struct interface {
     int(*pop)(arraylist self, size_t size, result* out);
 } interface;
 
-
-#undef arraylist
-#undef result
-#undef memmgr
-#undef interface
-#undef header_size
+#include "arraylist/undefs.h"

@@ -20,7 +20,7 @@ static struct create_data {
     size_t size;
     size_t called;
 } create;
-static _choco_arraylist_obj create_hook(_choco_arraylist_memmgr memory, size_t used, size_t size, _choco_arraylist_result* out)
+static _choco_arraylist_obj create_hook(_choco_memmgr_obj memory, size_t used, size_t size, _choco_arraylist_result* out)
 {
     create.called++;
     create.size = size;
@@ -37,7 +37,9 @@ static void destroy_hook(_choco_arraylist_obj self, _choco_arraylist_result* out
 {
     destroy.called++;
     destroy.destructed = self;
-    *out = destroy.result;
+    if(out) {
+        *out = destroy.result;
+    }
 }
 
 /*
@@ -106,6 +108,8 @@ _gt_test(resize, )
     _gt_test_int_eq(create.size, second_size);
     _gt_test_ptr_eq(obj.ptr, second_obj.ptr);
     _gt_test_ptr_eq(destroy.destructed.ptr, first_obj.ptr);
+    _gt_test_int_eq(destroy.called, 1);
+    _gt_test_int_eq(create.called, 1);
     _gt_passed();
     cleanup();
 }
@@ -113,6 +117,7 @@ _gt_test(resize, )
 _gt_test(resize, identical_size)
 {
     // arrange
+    init();
     _choco_arraylist_obj first_obj = { .ptr = first_mock.list };
 
     // act
@@ -123,12 +128,57 @@ _gt_test(resize, identical_size)
     _gt_test_int_eq(result, _CHOCO_ARRAYLIST_OK);
     _gt_test_ptr_eq(obj.ptr, first_obj.ptr);
     _gt_passed();
+    cleanup();
+}
+
+_gt_test(resize, failed_create)
+{
+    // arrange
+    init();
+    create.result = _CHOCO_ARRAYLIST_ERR_ALLOC;
+    create.output = (_choco_arraylist_obj) {.ptr = NULL};
+    _choco_arraylist_obj first_obj = { .ptr = first_mock.list };
+
+    // act
+    _choco_arraylist_result result;
+    _choco_arraylist_obj obj = _choco_arraylist.resize(first_obj, second_size, &result);
+
+    // assert
+    _gt_test_int_eq(create.called, 1);
+    _gt_test_int_eq(result, _CHOCO_ARRAYLIST_ERR_ALLOC);
+    _gt_test_ptr_eq(obj.ptr, first_obj.ptr);
+    _gt_passed();
+    cleanup();
+}
+
+_gt_test(resize, failed_destroy)
+{
+    // arrange
+    init();
+    _choco_arraylist_obj first_obj = { .ptr = first_mock.list };
+    _choco_arraylist_obj second_obj = { .ptr = second_mock.list };
+    create.result = _CHOCO_ARRAYLIST_OK;
+    create.output = second_obj;
+    destroy.result = _CHOCO_ARRAYLIST_ERR_DEALLOC;
+
+    // act
+    _choco_arraylist_result result;
+    _choco_arraylist_obj obj = _choco_arraylist.resize(first_obj, second_size, &result);
+
+    // assert
+    _gt_test_int_eq(create.called, 1);
+    _gt_test_int_eq(destroy.called, 2);
+    _gt_test_ptr_eq(obj.ptr, first_obj.ptr);
+    _gt_test_int_eq(result, _CHOCO_ARRAYLIST_ERR_DEALLOC);
+    _gt_test_ptr_eq(destroy.destructed.ptr, second_obj.ptr);
+    _gt_passed();
+    cleanup();
 }
 
 void _choco_arraylist_test_resize(void)
 {
-    init();
     _gt_run(resize, );
     _gt_run(resize, identical_size);
-    cleanup();
+    _gt_run(resize, failed_create);
+    _gt_run(resize, failed_destroy);
 }

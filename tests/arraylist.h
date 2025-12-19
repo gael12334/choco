@@ -3,6 +3,7 @@
 */
 
 #include "../src/arraylist.h"
+#include "../src/arraylist/header.h"
 #include "../src/gt/test.h"
 #include <string.h>
 
@@ -31,15 +32,15 @@ struct mock_memmgr {
 
 #define MOCK_ARRAYLIST_MAX_SIZE 10
 struct mock_arraylist {
-    _choco_arraylist_memmgr memory;
+    _choco_memmgr_obj memory;
     size_t units;
     size_t length;
     size_t size;
     size_t list[MOCK_ARRAYLIST_MAX_SIZE];
 };
 
-void mock_dealloc(void* obj, void* ptr, _choco_arraylist_result* out);
-void* mock_alloc(void* obj, size_t size, _choco_arraylist_result* out);
+void mock_dealloc(void* obj, void* ptr, int* out);
+void* mock_alloc(void* obj, size_t size, int* out);
 
 void _choco_arraylist_test_create(void);
 void _choco_arraylist_test_clone(void);

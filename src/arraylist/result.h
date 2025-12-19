@@ -1,0 +1,23 @@
+/*
+    Copyright © 2025 Gaël Fortier <gael.fortier.1@ens.etsmtl.ca>
+*/
+
+#pragma once
+
+typedef enum _choco_arraylist_result {
+    _CHOCO_ARRAYLIST_OK,
+    _CHOCO_ARRAYLIST_INV_MEMMGR,
+    _CHOCO_ARRAYLIST_INV_UNITS,
+    _CHOCO_ARRAYLIST_INV_INDEX,
+    _CHOCO_ARRAYLIST_INV_REF,
+    _CHOCO_ARRAYLIST_INV_SELF,
+    _CHOCO_ARRAYLIST_INV_SIZE,
+    _CHOCO_ARRAYLIST_INV_RANGE,
+    _CHOCO_ARRAYLIST_INV_OTHER,
+    _CHOCO_ARRAYLIST_INV_OFFSET,
+    _CHOCO_ARRAYLIST_ERR_ALLOC,
+    _CHOCO_ARRAYLIST_ERR_DEALLOC,
+    _CHOCO_ARRAYLIST_ERR_EMPTY,
+    _CHOCO_ARRAYLIST_NOT_IMPL,
+} _choco_arraylist_result;
+

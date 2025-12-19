@@ -10,7 +10,7 @@
 #define mock_arraylist _choco_arraylist_mock
 #define mock_dealloc _choco_arraylist_mock_dealloc
 
-void* mock_alloc(void* obj, size_t size, _choco_arraylist_result* out)
+void* mock_alloc(void* obj, size_t size, int* out)
 {
     struct mock_memmgr* mock = obj;
     struct mock_alloc* alloc = &mock->alloc_values[mock->alloc_calls++];
@@ -19,7 +19,7 @@ void* mock_alloc(void* obj, size_t size, _choco_arraylist_result* out)
     return alloc->return_pointer;
 }
 
-void mock_dealloc(void* obj, void* ptr, _choco_arraylist_result* out)
+void mock_dealloc(void* obj, void* ptr, int* out)
 {
     struct mock_memmgr* mock = obj;
     struct mock_dealloc* dealloc = &mock->dealloc_values[mock->dealloc_calls++];

@@ -15,7 +15,7 @@ _gt_test(create, )
     // arrange
     size_t size = 10;
     size_t units = sizeof(size_t);
-    size_t header_size = _choco_arraylist_header_size;
+    size_t header_size = sizeof(_choco_arraylist_header);
     size_t buffer_size = header_size + units * size;
     char buffer[buffer_size];
     struct _choco_arraylist_mock_memmgr mock = {
@@ -27,7 +27,7 @@ _gt_test(create, )
             } }
     };
 
-    _choco_arraylist_memmgr memmgr = {
+    _choco_memmgr_obj memmgr = {
         .obj = &mock,
         .alloc = mock_alloc,
         .dealloc = mock_dealloc
@@ -53,7 +53,7 @@ _gt_test(create, inv_memmgr)
     size_t size = 10;
     size_t units = sizeof(size_t);
 
-    _choco_arraylist_memmgr memmgr = {
+    _choco_memmgr_obj memmgr = {
         .obj = NULL,
         .alloc = NULL,
         .dealloc = NULL
@@ -74,7 +74,7 @@ _gt_test(create, err_alloc)
     // arrange
     size_t size = 10;
     size_t units = sizeof(int);
-    size_t header_size = _choco_arraylist_header_size;
+    size_t header_size = sizeof(_choco_arraylist_header);
     size_t buffer_size = header_size + units * size;
     struct _choco_arraylist_mock_memmgr mock = {
         .alloc_calls = 0,
@@ -85,7 +85,7 @@ _gt_test(create, err_alloc)
             } }
     };
 
-    _choco_arraylist_memmgr memmgr = {
+    _choco_memmgr_obj memmgr = {
         .obj = &mock,
         .alloc = mock_alloc,
         .dealloc = mock_dealloc

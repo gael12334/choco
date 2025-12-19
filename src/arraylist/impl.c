@@ -2,55 +2,17 @@
     Copyright © 2025 Gaël Fortier <gael.fortier.1@ens.etsmtl.ca>
 */
 
-#include "arraylist.h"
+#include "../arraylist.h"
+#include "defines.h"
+#include "header.h"
+#include "result.h"
 #include <string.h>
-
-#define arraylist _choco_arraylist_obj
-#define result _choco_arraylist_result
-#define memmgr _choco_arraylist_memmgr
-#define interface _choco_arraylist
-#define header_size _choco_arraylist_header_size
-
-// static arraylist create(memmgr memory, size_t units, size_t size, result* out);
-// static arraylist clone(memmgr memory, arraylist other, size_t index, size_t size, result* out);
-// static arraylist push(arraylist self, void* ref, size_t units, result* out);
-// static arraylist pull(arraylist self, arraylist other, size_t index, size_t size, result* out);
-// static arraylist reduce(arraylist self, result* out);
-// static size_t size_of(arraylist self, result* out);
-// static size_t length(arraylist self, result* out);
-// static size_t units(arraylist self, result* out);
-// static size_t size(arraylist self, result* out);
-// static void* remove(arraylist self, void* ref, size_t units, result* out);
-// static void* first(arraylist self, result* out);
-// static void* last(arraylist self, result* out);
-// static void* at(arraylist self, size_t index, result* out);
-// static void destroy(arraylist self, result* out);
-// static void fill(arraylist self, void* ref, size_t units, size_t index, size_t size, result* out);
-// static void copy(arraylist self, arraylist other, size_t index, size_t size, result* out);
-// static void clear(arraylist self, result* out);
-// static void swap(arraylist self, size_t index, size_t other, result* out);
-// static void flip(arraylist self, result* out);
-// static void sort(arraylist self, size_t units, size_t offset, result* out);
-// static int is_empty(arraylist self, result* out);
-// static int equals(arraylist self, arraylist other, result* out);
-// static int pop(arraylist self, size_t size, result* out);
-
-/*
- * Internal structs
- */
-
-typedef struct header {
-    memmgr memory;
-    size_t units;
-    size_t length;
-    size_t size;
-} header;
 
 /*
  * Private functions
  */
 
-static int memmgr_is_valid(memmgr memory)
+static int memmgr_is_valid(_choco_memmgr_obj memory)
 {
     return memory.alloc != NULL && memory.dealloc != NULL;
 }
@@ -139,6 +101,13 @@ static void set_data_from_arraylist(arraylist obj, size_t s_index, arraylist oth
     memcpy(s_element, o_element, get_data_size(units, size));
 }
 
+static void set_data_from_pointer(arraylist obj, size_t s_index, void* other, size_t o_index, size_t units, size_t size)
+{
+    void* s_element = get_element(obj, units, s_index);
+    void* o_element = other + get_data_size(units, o_index);
+    memcpy(s_element, o_element, get_data_size(units, size));
+}
+
 /*
  * Public functions
  */
@@ -159,7 +128,7 @@ static arraylist create(memmgr memory, size_t units, size_t size, result* out)
 
     result status;
     size_t needed = get_physical_size(&h);
-    header* ptr = memory.alloc(memory.obj, needed, &status);
+    header* ptr = memory.alloc(memory.obj, needed, (int*)&status);
 
     if (!alloc_was_successful(ptr, status)) {
         set_result(out, _CHOCO_ARRAYLIST_ERR_ALLOC);
@@ -238,11 +207,25 @@ static arraylist push(arraylist self, void* ref, size_t units, result* out)
     }
 
     header* h = get_header(self);
-    if (arraylist_is_full(h)) {
+    if(!units_is_valid(h, units)) {
+        set_result(out, _CHOCO_ARRAYLIST_INV_SIZE);
+        return self;
     }
 
-    set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
-    return get_null_arraylist();
+    if (arraylist_is_full(h)) {
+        arraylist new_self = interface.resize(self, (h->size + 1) * 2, out);
+        if(!arraylist_is_valid(new_self)) {
+            return self;
+        }
+
+        self = new_self;
+        h = get_header(self);
+    }
+
+    set_data_from_pointer(self, h->length, ref, 0, units, 1);
+    h->length++;
+    set_result(out, _CHOCO_ARRAYLIST_OK);
+    return self;
 }
 
 static arraylist pull(arraylist self, arraylist other, size_t index, size_t size, result* out)
