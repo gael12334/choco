@@ -43,6 +43,7 @@ void* mock_alloc(void* obj, size_t size, _choco_arraylist_result* out);
 
 void _choco_arraylist_test_create(void);
 void _choco_arraylist_test_clone(void);
+void _choco_arraylist_test_resize(void);
 void _choco_arraylist_test(void);
 
 #undef mock_memmgr
@@ -50,3 +51,5 @@ void _choco_arraylist_test(void);
 #undef mock_arraylist
 #undef mock_dealloc
 #undef mock_alloc
+#undef test_for
+#undef test

@@ -2,7 +2,7 @@
     Copyright © 2025 Gaël Fortier <gael.fortier.1@ens.etsmtl.ca>
 */
 
-#include "../arraylist_test.h"
+#include "../arraylist.h"
 
 #define mock_memmgr _choco_arraylist_mock_memmgr
 #define mock_alloc _choco_arraylist_mock_alloc
@@ -105,7 +105,8 @@ _gt_test(create, err_alloc)
     _gt_passed();
 }
 
-void _choco_arraylist_test_create(void) {
+void _choco_arraylist_test_create(void)
+{
     _gt_run(create, );
     _gt_run(create, inv_memmgr);
     _gt_run(create, err_alloc);

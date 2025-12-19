@@ -50,34 +50,44 @@ typedef struct header {
  * Private functions
  */
 
-static int is_memmgr_valid(memmgr memory)
+static int memmgr_is_valid(memmgr memory)
 {
     return memory.alloc != NULL && memory.dealloc != NULL;
 }
 
-static int is_arraylist_valid(arraylist obj)
+static int arraylist_is_valid(arraylist obj)
 {
     return obj.ptr != NULL;
 }
 
-static int is_index_valid(header* h, size_t index)
+static int index_is_valid(header* h, size_t index)
 {
     return index < h->length;
 }
 
-static int is_range_valid(header* h, size_t index, size_t size)
+static int range_is_valid(header* h, size_t index, size_t size)
 {
     return index < h->length && (index + size) <= h->length;
 }
 
-static int is_units_valid(header* h, size_t units)
+static int units_is_valid(header* h, size_t units)
 {
     return h->units == units;
 }
 
-static int is_alloc_successful(void* v, result status)
+static int alloc_was_successful(void* v, result status)
 {
     return v != NULL && status == _CHOCO_ARRAYLIST_OK;
+}
+
+static int arraylist_is_full(header* h)
+{
+    return h->length == h->size;
+}
+
+static int size_will_change(size_t current, size_t _new)
+{
+    return current != _new;
 }
 
 static header* get_header(arraylist obj)
@@ -122,9 +132,9 @@ static void set_result(result* out, result r)
     }
 }
 
-static void set_data_from_arraylist(arraylist self, size_t s_index, arraylist other, size_t o_index, size_t units, size_t size)
+static void set_data_from_arraylist(arraylist obj, size_t s_index, arraylist other, size_t o_index, size_t units, size_t size)
 {
-    void* s_element = get_element(self, units, s_index);
+    void* s_element = get_element(obj, units, s_index);
     void* o_element = get_element(other, units, o_index);
     memcpy(s_element, o_element, get_data_size(units, size));
 }
@@ -135,7 +145,7 @@ static void set_data_from_arraylist(arraylist self, size_t s_index, arraylist ot
 
 static arraylist create(memmgr memory, size_t units, size_t size, result* out)
 {
-    if (!is_memmgr_valid(memory)) {
+    if (!memmgr_is_valid(memory)) {
         set_result(out, _CHOCO_ARRAYLIST_INV_MEMMGR);
         return get_null_arraylist();
     }
@@ -151,7 +161,7 @@ static arraylist create(memmgr memory, size_t units, size_t size, result* out)
     size_t needed = get_physical_size(&h);
     header* ptr = memory.alloc(memory.obj, needed, &status);
 
-    if (!is_alloc_successful(ptr, status)) {
+    if (!alloc_was_successful(ptr, status)) {
         set_result(out, _CHOCO_ARRAYLIST_ERR_ALLOC);
         return get_null_arraylist();
     }
@@ -161,22 +171,55 @@ static arraylist create(memmgr memory, size_t units, size_t size, result* out)
     return get_arraylist(ptr);
 }
 
+static arraylist resize(arraylist self, size_t size, result* out)
+{
+    if (!arraylist_is_valid(self)) {
+        set_result(out, _CHOCO_ARRAYLIST_INV_SELF);
+        return self;
+    }
+
+    header* h = get_header(self);
+    if (!size_will_change(h->size, size)) {
+        set_result(out, _CHOCO_ARRAYLIST_OK); // premature return and ok if size is identical.
+        return self;
+    }
+
+    result r;
+    arraylist new_self = interface.create(h->memory, h->units, size, &r);
+    if (r != _CHOCO_ARRAYLIST_OK) {
+        set_result(out, r);
+        return self;
+    }
+
+    set_data_from_arraylist(new_self, 0, self, 0, h->units, h->size);
+
+    interface.destroy(self, &r);
+    if (r != _CHOCO_ARRAYLIST_OK) {
+        interface.destroy(new_self, NULL); // the result of this destroy call is irrelevant.
+        set_result(out, r);
+        return self;
+    }
+
+    set_result(out, _CHOCO_ARRAYLIST_OK);
+    return new_self;
+}
+
 static arraylist clone(memmgr memory, arraylist other, size_t index, size_t size, result* out)
 {
-    if (!is_arraylist_valid(other)) {
+    if (!arraylist_is_valid(other)) {
         set_result(out, _CHOCO_ARRAYLIST_INV_OTHER);
         return get_null_arraylist();
     }
 
     header* other_header = get_header(other);
-    if (!is_range_valid(other_header, index, size)) {
+    if (!range_is_valid(other_header, index, size)) {
         set_result(out, _CHOCO_ARRAYLIST_INV_RANGE);
         return get_null_arraylist();
     }
 
     result status;
     arraylist self = interface.create(memory, other_header->units, other_header->size, &status);
-    if (!is_alloc_successful(self.ptr, status)) {
+    if (!alloc_was_successful(self.ptr, status)) {
         set_result(out, status);
         return get_null_arraylist();
     }
@@ -189,6 +232,15 @@ static arraylist clone(memmgr memory, arraylist other, size_t index, size_t size
 
 static arraylist push(arraylist self, void* ref, size_t units, result* out)
 {
+    if (!arraylist_is_valid(self)) {
+        set_result(out, _CHOCO_ARRAYLIST_INV_SELF);
+        return self;
+    }
+
+    header* h = get_header(self);
+    if (arraylist_is_full(h)) {
+    }
+
     set_result(out, _CHOCO_ARRAYLIST_NOT_IMPL);
     return get_null_arraylist();
 }
@@ -327,6 +379,7 @@ struct interface interface = {
     .push = push,
     .reduce = reduce,
     .remove = remove,
+    .resize = resize,
     .size = size,
     .size_of = size_of,
     .sort = sort,

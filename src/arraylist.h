@@ -46,6 +46,7 @@ extern const size_t header_size;
 
 extern struct interface {
     arraylist(*create)(memmgr memory, size_t units, size_t size, result* out);
+    arraylist(*resize)(arraylist self, size_t size, result* out);
     arraylist(*clone)(memmgr memory, arraylist other, size_t index, size_t size, result* out);
     arraylist(*push)(arraylist self, void* ref, size_t units, result* out);
     arraylist(*pull)(arraylist self, arraylist other, size_t index, size_t size, result* out);
